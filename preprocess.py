@@ -7,8 +7,11 @@ import csv
 import os
 import re
 import string
+
 import numpy as np
 import numbers
+import time
+from sys import argv
 
 
 class MyVectorizer:
@@ -292,9 +295,9 @@ class MyVectorizer:
                 raise ValueError(
                     "max_df corresponds to < documents than min_df")
             stop_words_ = self._limit_features(raw_documents, vocabulary,
-                                                              max_doc_count,
-                                                              min_doc_count,
-                                                              max_features)
+                                               max_doc_count,
+                                               min_doc_count,
+                                               max_features)
             self.vocabulary = vocabulary
             self.stop_words = self.stop_words.union(stop_words_)
 
@@ -318,7 +321,6 @@ class MyVectorizer:
             if low <= dfs <= high:
                 vocabulary[term] = len(vocabulary)
 
-        sorted(vocabulary)
         removed_terms = self.dfs.keys() - vocabulary.keys()
 
         if len(vocabulary) == 0:
@@ -422,7 +424,7 @@ class DataProcessor:
                 print('Processing file {}...'.format(filecount))
                 document_count = 0
 
-                with open('data/' + file, 'rb') as datafile:
+                with open(directory + '/' + file, 'rb') as datafile:
                     data = datafile.read().decode('utf8', 'ignore')
                     soup = re.compile('<REUTERS.*?</REUTERS>', re.DOTALL)
                     id = 0
@@ -434,6 +436,9 @@ class DataProcessor:
                             documents.append(document)
 
                 print('Finished processing file {}...'.format(filecount))
+
+            if filecount == 0:
+                raise OSError('No data file detected. Please make sure the filename start with "reut2".')
         return documents
 
     def data_preprocess(self, directory):
@@ -456,32 +461,64 @@ class DataProcessor:
         return _train_documents, _test_documents
 
     def generate_dataset(self, documents, vocab):
+        # check whether the subdirectory exists or not if not create a subdirectory
+        subdirectory = "output"
+        if not os.path.exists(subdirectory):
+            os.makedirs(subdirectory)
+        print("Start writing data to vocabulary.csv")
         with open('output/vocabulary.csv', 'w', newline='') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
             writer.writerow(["Term", "Index"])
             writer.writerows(vocab.items())
-
+        print("Finish writing data to vocabulary.csv")
+        print("Start writing data to dataset.csv")
         with open('output/dataset.csv', 'w', newline='') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
-            writer.writerows(["document_id - (feature, vector) - [class labels]"])
+            writer.writerow(["document_id - (feature, vector) - [class labels]"])
+            writer.writerow('')
             id = 0
             for document in documents:
+                print("Writing document {}".format(id))
                 document.id = id
-                rows = ["document {}".format(id)]
+                writer.writerow(["document {}".format(id)])
+                writer.writerow(["class labels:"])
+                writer.writerow(document.class_list)
+                writer.writerow(['feature vector:'])
+                rows = []
                 for feature, frequency in document.tfs['all'].items():
                     output_str = "({},{})".format(feature, frequency)
                     rows.append(output_str)
-                rows.extend(document.class_list)
                 writer.writerow(rows)
+                writer.writerow('')
                 id += 1
+        print("Finish writing data to dataset.csv")
+
+
+def pause():
+    programPause = input("Press the <ENTER> key to continue...")
 
 
 if __name__ == "__main__":
-    data_dir = 'data'
+    A1 = time.time()
+    if len(argv) > 1:
+        data_dir = argv[1]
+    else:
+        data_dir = 'data'
+
+    if not os.path.exists(data_dir):
+        raise OSError(
+            'Please store original data files in data/ directory or type "python3 preprocess.py data_path" to input path of data')
+
+    data_dir = os.path.abspath(data_dir)
     data_processor = DataProcessor()
     train_documents, test_documents = data_processor.data_preprocess(data_dir)
 
     # binarize the class label to class vectors
     count_vectorizer = MyVectorizer(max_df=0.9)
-    train_documents, vocabulary = count_vectorizer.fit_transform(train_documents)
-    data_processor.generate_dataset(documents=train_documents, vocab=vocabulary)
+    train_documents, vocabulary_ = count_vectorizer.fit_transform(train_documents)
+    data_processor.generate_dataset(documents=train_documents, vocab=vocabulary_)
+
+    print("\nData preprocess temination message:")
+    print("The data preprocess is completed and successful.")
+    print("Two output files are in output/")
+    print("Process time: {} s.".format(time.time() - A1))
