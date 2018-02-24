@@ -4,15 +4,7 @@ preprocess.py is to read data from reuter-21578, parser the data and translate t
 
 Reuters-21578是文本分析任务中比较重要的数据集，其包含一系列SGML格式的文件，需要我们进行预处理。
 
-preprocess.py的工作就是从reuters-21578中读取数据，将文本转化成分词向量，将TOPICS和PLACES中的内容转化为class labels，类标签将用于之后的多标签文本分类。
-
-# How to tokenize words
-
-I use regular expression to find all string which only contains [a-z.-]. Now, I don't lemmatize or stem the words.
-
-# How to filter words
-
-I choose documetn frequency to filter more important words of which df is between 3 and 0.9 * all_documents.
+preprocess.py的工作就是从reuters-21578中读取数据，将文本转化成分词向量，将TOPICS和PLACES中的内容转化为类标签，类标签将用于之后的多标签文本分类。
 
 # To run the program:
 
@@ -25,7 +17,42 @@ Type in command line, data_path is self-defined data path.
 ```
 python3 preprocess.py data_path
 ```
-    
+
+# Construct document object
+
+I use regular expression to extract the content of each article and construct each news article as an object.
+
+## Tokenize words
+
+I use regular expression to find all string which only contains [a-z.-]. Convert text to a list of words. 
+
+Now, I don't lemmatize or stem the words.
+
+## Get bag of words
+
+1. Construct a set vocabulary of all words and calculate the document frequency of each word.
+2. Eliminate words which are too common or too rare by eliminating words of which the document frequency is less than 4 or more than 0.9 * all\_documents.
+3. Get bag of words.
+
+```
+feature vector = [term 1, term 2, term 3, ... , term n]
+```
+
+## Compute feature vector
+
+Compute term frequency in each document and use tf to construct feature vector of document.
+
+```
+[term 1 frequency, term 2 frequency, term 3 frequency, ... ,term n frequency]
+```
+
+## Store feature vector
+
+Because most of elements for a feature vector of a document is 0. It is sparse matrix so I use a dict to mapping term to term frequency. 
+```
+feature vector of each document = [(term i, frequency),...,(term j, frequency)] (the frequency of term is more than 0)
+```
+
 # View output
 
 It will output two files: dataset.csv, vocabulary.csv
@@ -51,7 +78,7 @@ It will output two files: dataset.csv, vocabulary.csv
     The structure of document data:
     1. The first row means the id of this document.
     2. The second and third row is class label part. Class labels part will list class labels which come from TOPICS and PLACES.
-    3. The fouth row and fifth row is feature vector. Feature vector is a list of string. The structure of each element of the vector is (term, frequency).
+    3. The fourth row and fifth row is feature vector. Feature vector is a list of string. The structure of each element of the vector is (term, frequency).
 
 2. vocabulary.csv:
     The data in vocabulary.csv is in the structure (term, index) which means the index of term in the term-vector. The point here is that the feature vector of all documents can construct a sparse matrix. Most of values of feature vector of a document are 0. Therefore, I want to store the mapping of term to index in vocabulary and then I only need to store the terms of which the value is not 0 in the document object for saving storage.
