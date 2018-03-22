@@ -2,35 +2,8 @@ import os
 import time
 from sys import argv
 
-import numpy as np
-
-from classifier.knn_classifier import KNNClassifier
 from data_preprocess.preprocess import DataProcessor, MyVectorizer
-
-
-def derivative_feature_vectors(_vocabulary):
-    feature_set = []
-    for feature, df in _vocabulary.items():
-        feature_set.append((feature, df))
-    feature_set = sorted(feature_set, key=lambda pair: pair[1], reverse=True)
-    feature_vector_1_tmp = {}
-    feature_vector_2_tmp = {}
-    for feature in feature_set[0:127]:
-        feature_vector_1_tmp[feature[0]] = len(feature_vector_1_tmp)
-    for feature in feature_set[0:min(len(feature_set), 300)]:
-        feature_vector_2_tmp[feature[0]] = len(feature_vector_2_tmp)
-    return feature_vector_1_tmp, feature_vector_2_tmp
-
-
-def generate_tfidf_feature(bag_of_features, raw_documents, _vocabulary):
-    m = len(bag_of_features)
-    for document in raw_documents:
-        feature_vector = np.zeros(m)
-        for feature, col in bag_of_features.items():
-            if feature in document.tf_idf.keys():
-                feature_vector[col] = document.tf_idf[feature]
-        document.feature_vector['topics'] = feature_vector
-
+from mymethods import derivative_feature_vectors, naive_predict
 
 if __name__ == "__main__":
     A1 = time.time()
@@ -51,12 +24,48 @@ if __name__ == "__main__":
     # binarize the class label to class vectors
     count_vectorizer = MyVectorizer(max_df=0.9, bag_of_topics=bag_of_topics)
     train_documents, vocabulary_ = count_vectorizer.fit_transform(train_documents)
+    count_vectorizer_test = MyVectorizer(max_df=0.9)
+    count_vectorizer_test.count_vocab(test_documents, False)
+
+    # get the Y test
+    Y_test_original = []
+    for document in test_documents:
+        Y_test_original.append(document.class_['topics'])
 
     # construct more than 256 cardinality and less than 128 cardinality feature vectors
     feature_vector_1, feature_vector_2 = derivative_feature_vectors(vocabulary_)
-    generate_tfidf_feature(feature_vector_1, train_documents, vocabulary_)
-    knn_classifer = KNNClassifier(df_of_topics=df_of_topics, bag_of_features=feature_vector_1, vocabulary=vocabulary_)
-    knn_classifer.knn_predict(feature_vector_1, train_documents, test_documents, df_of_topics)
+
+    """ knn predict """
+    # feature_matrix_1 = generate_tf_idf_feature(feature_vector_1, train_documents, vocabulary_)
+    # feature_matrix_2 = generate_tf_idf_feature(feature_vector_2, train_documents, vocabulary_)
+    # Y_knn_128_predict, Y_knn_128_accuracy = knn_predict(feature_vector=feature_vector_1,
+    #                                                     df_of_topics=df_of_topics,
+    #                                                     vocabulary_=vocabulary_,
+    #                                                     train_documents=train_documents,
+    #                                                     test_documents=test_documents,
+    #                                                     feature_matrix=feature_matrix_1,
+    #                                                     y_test_original=Y_test_original)
+    # Y_knn_256_predict, Y_knn_256_accuracy = knn_predict(feature_vector=feature_vector_2,
+    #                                                     df_of_topics=df_of_topics,
+    #                                                     vocabulary_=vocabulary_,
+    #                                                     train_documents=train_documents,
+    #                                                     test_documents=test_documents,
+    #                                                     feature_matrix=feature_matrix_2,
+    #                                                     y_test_original=Y_test_original)
+
+    """ Naive Bayes predict """
+    Y_naive_128_predict = naive_predict(feature_vector_1,
+                                        bag_of_topics,
+                                        vocabulary_,
+                                        train_documents,
+                                        test_documents,
+                                        Y_test_original)
+    Y_naive_256_predict = naive_predict(feature_vector_2,
+                                        bag_of_topics,
+                                        vocabulary_,
+                                        train_documents,
+                                        test_documents,
+                                        Y_test_original)
 
     # generate_dataset(documents=train_documents, vocab=vocabulary_)
     # knn_classifier = KNN_Classifier(feature_vector_1, train_documents)

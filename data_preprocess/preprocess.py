@@ -182,7 +182,7 @@ class MyVectorizer:
         :param
             text: string representing the text.
         :return
-            A dictionary of tokenized words mapped to frequence.
+            A dictionary of tokenized words mapped to frequency.
         """
         # tokenize words, remove stop words
         tokenizer = re.compile(r'\b[a-z][a-z.-]*\b')
@@ -196,11 +196,11 @@ class MyVectorizer:
         # lemmatization process
         lemmas = []
         for word, tag in tagged_tokens:
-            wntag = self.get_wordnet_pos(tag)
-            if wntag is None:
+            wn_tag = self.get_word_net_pos(tag)
+            if wn_tag is None:
                 lemmas.append(self.lemmatizer.lemmatize(word))
             else:
-                lemmas.append(self.lemmatizer.lemmatize(word, pos=wntag))
+                lemmas.append(self.lemmatizer.lemmatize(word, pos=wn_tag))
 
         # stemming process, remove short stems
         stems = []
@@ -214,14 +214,14 @@ class MyVectorizer:
 
         return valid_tokens
 
-    def build_tokenizer(self):
+    def _build_tokenizer(self):
         """Return a function that splits a string into a sequence of tokens"""
         if self.tokenizer is not None:
             return self.tokenizer
 
         return self.my_tokenizer
 
-    def build_preprocessor(self):
+    def _build_preprocessor(self):
         """Return a function to preprocess the text before tokenization"""
         if self.preprocessor is not None:
             return self.preprocessor
@@ -229,31 +229,31 @@ class MyVectorizer:
         # remove digits, punctuations
         return lambda raw_text: re.sub('[^a-z,.-]', ' ', raw_text)
 
-    def build_analyzer(self):
-        """Return a callable that handles preprocessing and tokenization"""
+    def _build_analyzer(self):
+        """Return a callable that handles pre-processing and tokenization"""
         if callable(self.analyzer):
             return self.analyzer
 
-        preprocess = self.build_preprocessor()
-        tokenize = self.build_tokenizer()
+        preprocess = self._build_preprocessor()
+        tokenize = self._build_tokenizer()
 
         return lambda doc: tokenize(preprocess(doc))
 
-    def _count_vocab(self, raw_documents, fixed_vocab):
+    def count_vocab(self, raw_documents, fixed_vocab):
         """Create sparse feature matrix, and vocabulary where fixed_vocab=False
         """
         vocabulary = {}
         if fixed_vocab:
             vocabulary = self.vocabulary
 
-        analyze = self.build_analyzer()
+        analyze = self._build_analyzer()
 
         for document in raw_documents:
             doc = document.text
             for feature, tfs in analyze(doc).items():
                 if feature not in self.bag_of_topics:
                     try:
-                        # calculate term frequece and dfs
+                        # calculate term frequency and dfs
                         add_value(document.tfs['all'], key=feature, value=tfs)
                         add_value(self.dfs, key=feature, value=1)
                     except KeyError:
@@ -284,8 +284,8 @@ class MyVectorizer:
         min_df = self.min_df
         max_features = self.max_features
 
-        vocabulary = self._count_vocab(raw_documents,
-                                       self.fixed_vocabulary_)
+        vocabulary = self.count_vocab(raw_documents,
+                                      self.fixed_vocabulary_)
 
         vocabulary_ = {}
         if not self.fixed_vocabulary_:
@@ -336,7 +336,7 @@ class MyVectorizer:
                 if term in vocabulary:
                     add_value(document.tf_idf, term, calculate_tf_idf(tf=tf, df=vocabulary[term], doc_num=n))
                     pairs.append((term, document.tf_idf[term]))
-            pairs = sorted(pairs, key=lambda pair: pair[1], reverse=True)
+            pairs = sorted(pairs, key=lambda a: a[1], reverse=True)
             len_ = int(0.2 * len(pairs))
             for pair in pairs[0:min(10, len_)]:
                 if pair[0] not in valid_terms.keys():
@@ -360,21 +360,21 @@ def generate_dataset(documents, vocab):
     if not os.path.exists(subdirectory):
         os.makedirs(subdirectory)
     print("Start writing data to vocabulary.csv")
-    with open('output/vocabulary.csv', 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile, delimiter=',')
+    with open('output/vocabulary.csv', 'w', newline='') as csv_file:
+        writer = csv.writer(csv_file, delimiter=',')
         writer.writerow(["Term", "Index"])
         writer.writerows(vocab.items())
     print("Finish writing data to vocabulary.csv")
     print("Start writing data to dataset.csv")
-    with open('output/dataset.csv', 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile, delimiter=',')
+    with open('output/dataset.csv', 'w', newline='') as csv_file:
+        writer = csv.writer(csv_file, delimiter=',')
         writer.writerow(["document_id - (feature, vector) - [class labels]"])
         writer.writerow('')
-        id = 0
+        document_id = 0
         for document in documents:
-            print("Writing document {}".format(id))
-            document.id = id
-            writer.writerow(["document {}".format(id)])
+            print("Writing document {}".format(document_id))
+            document.id = document_id
+            writer.writerow(["document {}".format(document_id)])
             writer.writerow(["class labels:"])
             writer.writerow(document.class_list)
             writer.writerow(['feature vector:'])
@@ -384,7 +384,7 @@ def generate_dataset(documents, vocab):
                 rows.append(output_str)
             writer.writerow(rows)
             writer.writerow('')
-            id += 1
+            document_id += 1
     print("Finish writing data to dataset.csv")
 
 
@@ -401,7 +401,8 @@ class DataProcessor:
         self.bag_of_places = set()
         self.df_of_topics = {}
 
-    def parse_article(self, article):
+    @staticmethod
+    def parse_article(article):
         """ Parse the article to generate a document object.
 
         Args:
@@ -496,6 +497,5 @@ class DataProcessor:
 
         return _train_documents, _test_documents, self.bag_of_topics, self.df_of_topics
 
-
-def pause():
-    programPause = input("Press the <ENTER> key to continue...")
+# def pause():
+#    programPause = input("Press the <ENTER> key to continue...")
