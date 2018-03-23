@@ -3,7 +3,6 @@
 """
 @author: gjxhlan
 """
-import csv
 import numbers
 import os
 import re
@@ -11,8 +10,9 @@ import string
 
 import numpy as np
 
-from data_structure.data_structure import Document
-from metric.metric import calculate_tf_idf
+from data_structure.data_structure import Document, StaticData
+from metric.metric import calculate_ichi_metric, calculate_static_data, add_value
+from mymethods import write_to_file
 
 
 class MyVectorizer:
@@ -142,7 +142,7 @@ class MyVectorizer:
                  stop_words=None, token_pattern=r"(?u)\b\w\w+\b",
                  ngram_range=(1, 1), analyzer='word',
                  max_df=0.9, min_df=3, max_features=None,
-                 vocabulary=None, binary=False, dtype=np.int64, bag_of_topics=set()):
+                 vocabulary=None, binary=False, dtype=np.int64, bag_of_topics=StaticData.bag_of_classes):
         self.max_df = max_df
         self.min_df = min_df
         self.max_features = max_features
@@ -155,7 +155,6 @@ class MyVectorizer:
         self.decode_error = decode_error
         self.strip_accents = strip_accents
         self.preprocessor = preprocessor
-        self.tokenizer = tokenizer
         self.analyzer = analyzer
         self.lowercase = lowercase
         self.token_pattern = token_pattern
@@ -166,15 +165,7 @@ class MyVectorizer:
         self.max_features = max_features
         self.ngram_range = ngram_range
         self.binary = binary
-        self.dfs = {}
         self.bag_of_topics = bag_of_topics
-
-    def _validate_vocabulary(self):
-        vocabulary = self.vocabulary
-        if vocabulary is not None:
-            self.fixed_vocabulary_ = True
-        else:
-            self.fixed_vocabulary_ = False
 
     def my_tokenizer(self, raw_text) -> {}:
         """ Extract tokenized words from text.
@@ -239,28 +230,23 @@ class MyVectorizer:
 
         return lambda doc: tokenize(preprocess(doc))
 
-    def count_vocab(self, raw_documents, fixed_vocab):
+    def count_vocab(self, raw_documents, flag=False):
         """Create sparse feature matrix, and vocabulary where fixed_vocab=False
         """
-        vocabulary = {}
-        if fixed_vocab:
-            vocabulary = self.vocabulary
 
         analyze = self._build_analyzer()
+        df_term = {}
 
         for document in raw_documents:
             doc = document.text
             for feature, tfs in analyze(doc).items():
-                if feature not in self.bag_of_topics:
-                    try:
-                        # calculate term frequency and dfs
-                        add_value(document.tfs['all'], key=feature, value=tfs)
-                        add_value(self.dfs, key=feature, value=1)
-                    except KeyError:
-                        # Ignore out-of-vocabulary items for fixed_vocab=True
-                        continue
+                if feature not in StaticData.bag_of_classes:
+                    # calculate term frequency and dfs
+                    add_value(document.tfs['all'], key=feature, value=tfs)
+                    add_value(df_term, key=feature, value=1)
 
-        return vocabulary
+        if flag:
+            StaticData.df_term = df_term
 
     def fit_transform(self, raw_documents):
         """Learn the vocabulary dictionary and return term-document matrix.
@@ -279,35 +265,32 @@ class MyVectorizer:
             Document-term matrix.
             :param raw_documents:
         """
-        self._validate_vocabulary()
         max_df = self.max_df
         min_df = self.min_df
         max_features = self.max_features
 
-        vocabulary = self.count_vocab(raw_documents,
-                                      self.fixed_vocabulary_)
+        self.count_vocab(raw_documents, True)
+        calculate_static_data(raw_documents)
 
-        vocabulary_ = {}
-        if not self.fixed_vocabulary_:
-            n_doc = len(raw_documents)
-            max_doc_count = (max_df
-                             if isinstance(max_df, numbers.Integral)
-                             else max_df * n_doc)
-            min_doc_count = (min_df
-                             if isinstance(min_df, numbers.Integral)
-                             else min_df * n_doc)
-            if max_doc_count < min_doc_count:
-                raise ValueError(
-                    "max_df corresponds to < documents than min_df")
-            stop_words_, vocabulary_ = self._limit_features(raw_documents, vocabulary,
-                                                            max_doc_count,
-                                                            min_doc_count,
-                                                            max_features)
-            self.stop_words = self.stop_words.union(stop_words_)
+        n_doc = len(raw_documents)
+        max_doc_count = (max_df
+                         if isinstance(max_df, numbers.Integral)
+                         else max_df * n_doc)
+        min_doc_count = (min_df
+                         if isinstance(min_df, numbers.Integral)
+                         else min_df * n_doc)
+        if max_doc_count < min_doc_count:
+            raise ValueError(
+                "max_df corresponds to < documents than min_df")
+        vocabulary_ = self._limit_features(raw_documents,
+                                           max_doc_count,
+                                           min_doc_count,
+                                           max_features)
 
         return raw_documents, vocabulary_
 
-    def _limit_features(self, raw_documents, vocabulary, high=None, low=None,
+    @staticmethod
+    def _limit_features(raw_documents, high=None, low=None,
                         limit=None):
         """Remove too rare or too common features.
 
@@ -321,71 +304,21 @@ class MyVectorizer:
             return raw_documents, set()
 
         # Calculate a mask based on document frequencies
-        for term, dfs in self.dfs.items():
-            if low <= dfs <= high:
-                vocabulary[term] = dfs
+        ichi = calculate_ichi_metric(raw_documents)
+        temp = []
 
-        removed_terms = self.dfs.keys() - vocabulary.keys()
+        for term, value in ichi.items():
+            temp.append([term, value])
 
-        # Calculate tf-idf
-        valid_terms = {}
-        n = len(raw_documents)
-        for document in raw_documents:
-            pairs = []
-            for term, tf in document.tfs['all'].items():
-                if term in vocabulary:
-                    add_value(document.tf_idf, term, calculate_tf_idf(tf=tf, df=vocabulary[term], doc_num=n))
-                    pairs.append((term, document.tf_idf[term]))
-            pairs = sorted(pairs, key=lambda a: a[1], reverse=True)
-            len_ = int(0.2 * len(pairs))
-            for pair in pairs[0:min(10, len_)]:
-                if pair[0] not in valid_terms.keys():
-                    valid_terms[pair[0]] = vocabulary[pair[0]]
+        temp = sorted(temp, key=lambda pair: pair[1], reverse=True)
+        StaticData.i_chi_list = temp
+        vocabulary = [item[0] for item in temp]
+        StaticData.vocabulary = vocabulary
 
-        if len(valid_terms) == 0:
+        if len(vocabulary) == 0:
             raise ValueError("After pruning, no terms remain. Try a lower"
                              " min_df or a higher max_df.")
-        return removed_terms, valid_terms
-
-
-def add_value(dict_, key, value):
-    if key not in dict_:
-        dict_[key] = 0
-    dict_[key] += value
-
-
-def generate_dataset(documents, vocab):
-    # check whether the subdirectory exists or not if not create a subdirectory
-    subdirectory = "output"
-    if not os.path.exists(subdirectory):
-        os.makedirs(subdirectory)
-    print("Start writing data to vocabulary.csv")
-    with open('output/vocabulary.csv', 'w', newline='') as csv_file:
-        writer = csv.writer(csv_file, delimiter=',')
-        writer.writerow(["Term", "Index"])
-        writer.writerows(vocab.items())
-    print("Finish writing data to vocabulary.csv")
-    print("Start writing data to dataset.csv")
-    with open('output/dataset.csv', 'w', newline='') as csv_file:
-        writer = csv.writer(csv_file, delimiter=',')
-        writer.writerow(["document_id - (feature, vector) - [class labels]"])
-        writer.writerow('')
-        document_id = 0
-        for document in documents:
-            print("Writing document {}".format(document_id))
-            document.id = document_id
-            writer.writerow(["document {}".format(document_id)])
-            writer.writerow(["class labels:"])
-            writer.writerow(document.class_list)
-            writer.writerow(['feature vector:'])
-            rows = []
-            for feature, frequency in document.tfs['all'].items():
-                output_str = "({},{})".format(feature, frequency)
-                rows.append(output_str)
-            writer.writerow(rows)
-            writer.writerow('')
-            document_id += 1
-    print("Finish writing data to dataset.csv")
+        return vocabulary
 
 
 class DataProcessor:
@@ -397,9 +330,7 @@ class DataProcessor:
     def __init__(self):
         # variables for removing stop words, digits, punctuation
         # two class labels are dictionary, key is class, value is list of documents
-        self.bag_of_topics = set()
-        self.bag_of_places = set()
-        self.df_of_topics = {}
+        pass
 
     @staticmethod
     def parse_article(article):
@@ -461,10 +392,7 @@ class DataProcessor:
                 with open(directory + '/' + file, 'rb') as datafile:
                     data = datafile.read().decode('utf8', 'ignore')
                     soup = re.compile('<REUTERS.*?</REUTERS>', re.DOTALL)
-                    document_count = 0
                     for article in soup.findall(data):
-                        document_count += 1
-                        print('Processing document {}...'.format(document_count))
                         document = self.parse_article(article.lower())
                         if document is not None:
                             documents.append(document)
@@ -483,19 +411,31 @@ class DataProcessor:
         """
         # generate list of document objects for constructing feature vector
         documents = self.extract_documents(directory)
+        print("\n========== Construct a list of TOPIC words ==========")
         _train_documents = []
         _test_documents = []
+        bag_of_classes = set()
+        df_of_classes = {}
         for document in documents:
             if len(document.class_list) > 0:
                 if document.train:
                     _train_documents.append(document)
-                    self.bag_of_topics = self.bag_of_topics.union(document.class_['topics'])
+                    bag_of_classes = bag_of_classes.union(document.class_['topics'])
                     for topic in document.class_['topics']:
-                        add_value(self.df_of_topics, topic, 1)
+                        add_value(df_of_classes, topic, 1)
                 else:
                     _test_documents.append(document)
 
-        return _train_documents, _test_documents, self.bag_of_topics, self.df_of_topics
+        StaticData.df_of_classes = df_of_classes
+        StaticData.bag_of_classes = bag_of_classes
+        StaticData.n_train_documents = len(_train_documents)
+        StaticData.n_classes = len(bag_of_classes)
+
+        write_to_file(bag_of_classes, "TOPIC_list.csv")
+
+        print("Finish constructing TOPIC list. You can see the TOPIC_list.csv file in /output.")
+
+        return _train_documents, _test_documents
 
 # def pause():
 #    programPause = input("Press the <ENTER> key to continue...")

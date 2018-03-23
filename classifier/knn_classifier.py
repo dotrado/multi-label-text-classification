@@ -2,17 +2,17 @@ import queue
 
 import numpy as np
 
-from data_preprocess.preprocess import add_value
-from metric.metric import calculate_tf_idf
+from data_structure.data_structure import StaticData
+from metric.metric import calculate_tf_idf, add_value
 
 
 class KNNClassifier:
 
-    def __init__(self, bag_of_features=None, vocabulary=None, k=5, df_of_topics=None):
+    def __init__(self, bag_of_features=None, k=5, df_of_classes=None):
         self.bag_of_features = bag_of_features
-        self.vocabulary = vocabulary
+        self.df_term = StaticData.df_term
         self.k = k
-        self.df_of_topics = df_of_topics
+        self.df_of_classes = df_of_classes
         self.p_topic_appear = {}
         self.k_neighbors = []
 
@@ -28,8 +28,11 @@ class KNNClassifier:
         for feature, col in self.bag_of_features.items():
             if feature in test_document.tfs['all'].keys():
                 tf = test_document.tfs['all'][feature]
-                df = self.vocabulary[feature]
-                feature_vector[col] = calculate_tf_idf(tf=tf, df=df, doc_num=n)
+                df = self.df_term[feature]
+                tf_idf = calculate_tf_idf(tf=tf, df=df, doc_num=n)
+                feature_vector[col] = tf_idf
+
+        np.linalg.norm(feature_vector, axis=0)
         test_document.feature_vector = feature_vector
         return feature_vector
 
@@ -58,7 +61,7 @@ class KNNClassifier:
         test_feature_vector = self.generate_feature_vector(test_document, n)
         z = np.linalg.norm(feature_matrix - test_feature_vector, axis=1, keepdims=True)
         for row, document in zip(range(len(z)), train_documents):
-            k_neighbors.append((z[row][0], document))
+            k_neighbors.append([z[row][0], document])
 
         k_neighbors = sorted(k_neighbors, key=lambda pair: pair[0])
         return k_neighbors
@@ -67,7 +70,7 @@ class KNNClassifier:
         k_neighbors = []
         document_count = 0
         for test_document in test_documents:
-            # print("Processing test document {}...".format(document_count))
+            print("Processing test document {}...".format(document_count))
             k_neighbors.append(self.find_knn_prepare(train_documents, test_document, feature_matrix))
             document_count += 1
         return k_neighbors

@@ -3,9 +3,10 @@ import time
 from sys import argv
 
 from data_preprocess.preprocess import DataProcessor, MyVectorizer
-from mymethods import derivative_feature_vectors, naive_predict
+from mymethods import derivative_feature_vectors, naive_predict, generate_tf_idf_feature, knn_predict
 
 if __name__ == "__main__":
+
     A1 = time.time()
     if len(argv) > 1:
         data_dir = argv[1]
@@ -17,15 +18,18 @@ if __name__ == "__main__":
             'Please store original data files in data/ directory or '
             'type "python3 preprocess.py data_path" to input path of data')
 
+    """ Preprocessing """
+    print("========== Parse data files ==========")
     data_dir = os.path.abspath(data_dir)
     data_processor = DataProcessor()
-    train_documents, test_documents, bag_of_topics, df_of_topics = data_processor.data_preprocess(data_dir)
+    train_documents, test_documents = data_processor.data_preprocess(data_dir)
 
     # binarize the class label to class vectors
-    count_vectorizer = MyVectorizer(max_df=0.9, bag_of_topics=bag_of_topics)
+    print("\nConstructing bag of words...")
+    count_vectorizer = MyVectorizer(max_df=0.9)
     train_documents, vocabulary_ = count_vectorizer.fit_transform(train_documents)
     count_vectorizer_test = MyVectorizer(max_df=0.9)
-    count_vectorizer_test.count_vocab(test_documents, False)
+    count_vectorizer_test.count_vocab(test_documents)
 
     # get the Y test
     Y_test_original = []
@@ -36,32 +40,28 @@ if __name__ == "__main__":
     feature_vector_1, feature_vector_2 = derivative_feature_vectors(vocabulary_)
 
     """ knn predict """
-    # feature_matrix_1 = generate_tf_idf_feature(feature_vector_1, train_documents, vocabulary_)
-    # feature_matrix_2 = generate_tf_idf_feature(feature_vector_2, train_documents, vocabulary_)
-    # Y_knn_128_predict, Y_knn_128_accuracy = knn_predict(feature_vector=feature_vector_1,
-    #                                                     df_of_topics=df_of_topics,
-    #                                                     vocabulary_=vocabulary_,
-    #                                                     train_documents=train_documents,
-    #                                                     test_documents=test_documents,
-    #                                                     feature_matrix=feature_matrix_1,
-    #                                                     y_test_original=Y_test_original)
-    # Y_knn_256_predict, Y_knn_256_accuracy = knn_predict(feature_vector=feature_vector_2,
-    #                                                     df_of_topics=df_of_topics,
-    #                                                     vocabulary_=vocabulary_,
-    #                                                     train_documents=train_documents,
-    #                                                     test_documents=test_documents,
-    #                                                     feature_matrix=feature_matrix_2,
-    #                                                     y_test_original=Y_test_original)
+    print("KNN Classifier: ")
+    print("Select k = 5 as the number of neighbors.")
+    feature_matrix_1 = generate_tf_idf_feature(feature_vector_1, train_documents)
+    feature_matrix_2 = generate_tf_idf_feature(feature_vector_2, train_documents)
+    Y_knn_128_predict, Y_knn_128_accuracy = knn_predict(feature_vector=feature_vector_1,
+                                                        train_documents=train_documents,
+                                                        test_documents=test_documents,
+                                                        feature_matrix=feature_matrix_1,
+                                                        y_test_original=Y_test_original)
+    Y_knn_256_predict, Y_knn_256_accuracy = knn_predict(feature_vector=feature_vector_2,
+                                                        train_documents=train_documents,
+                                                        test_documents=test_documents,
+                                                        feature_matrix=feature_matrix_2,
+                                                        y_test_original=Y_test_original)
 
     """ Naive Bayes predict """
     Y_naive_128_predict = naive_predict(feature_vector_1,
-                                        bag_of_topics,
                                         vocabulary_,
                                         train_documents,
                                         test_documents,
                                         Y_test_original)
     Y_naive_256_predict = naive_predict(feature_vector_2,
-                                        bag_of_topics,
                                         vocabulary_,
                                         train_documents,
                                         test_documents,

@@ -22,3 +22,44 @@ class Document:
         self.class_vector = dict(topics=[], places=[])
         self.tf_idf = {}
         self.train = False
+
+
+class StaticData:
+    """ Static Count """
+    # set of classes, class -> document frequency, initialized in data_preprocess
+    bag_of_classes = set()
+    df_of_classes = {}
+
+    # number of train documents, initialized in data_preprocess
+    n_train_documents = 0
+    n_classes = 0.0
+
+    # the amount of documents vs class
+    class_has_documents = {}
+
+    """ Metric"""
+    # chi square metric of importance of a term to a class
+    chi_2_term_class = {}
+    # alpha
+    tf_avg_term_class = {}
+    # entropy
+    entropy_term_class = {}
+    # beta modified factor
+    beta = {}
+
+    # my ichi importance metric of a term to a class
+    i_chi = {}
+    i_chi_term_class = {}
+    i_chi_list = []
+
+    """ relation between term and class """
+    # term frequency of a term to a class, initialized in calculate_static_data
+    tf_term_class = {}
+    df_term_class = {}
+
+    """ relation between term and document """
+    # how many documents have term i, initialized in preprocess.count_vocab
+    df_term = {}
+
+    """ sorted bag of words for building feature """
+    vocabulary = []
