@@ -63,3 +63,15 @@ class StaticData:
 
     """ sorted bag of words for building feature """
     vocabulary = []
+
+    """ time counter """
+    preprocessing_time = 0.0
+    knn_build_time = []
+    knn_predict_time = []
+    naive_build_time = []
+    naive_predict_time = []
+    A1 = 0.0
+
+    """ accuracy """
+    knn_accuracy = []
+    naiver_accuracy = []

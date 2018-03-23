@@ -107,7 +107,6 @@ def calculate_term_entropy_in_class(raw_documents):
 
     for class_ in StaticData.bag_of_classes:
         for document in class_has_documents[class_]:
-            print("Processing Document...")
             for term in document.tfs['all'].keys():
                 if term not in entropy_term_class:
                     entropy_term_class[term] = {}
@@ -141,12 +140,17 @@ def calculate_ichi_metric(raw_documents):
     :return:
     """
 
+    print("Calculate the chi square metric: chi_2_term_class[term][class]...")
     chi_2_term_class = calculate_chi_2()
+    print("Calculate normalized term frequency of terms vs classes: tf_class[term][class]...")
     tf_class = calculate_tf_class()
+    print("Calculate information entropy of terms vs classes: entropy_term_class[term][class]...")
     entropy_term_class = calculate_term_entropy_in_class(raw_documents)
+    print("Calculate modified factor β for chi square metric...")
     beta = calculate_beta_factor()
     ichi = {}
     ichi_term_class = {}
+    print("Combine them to calculate my importance metric ichi for each term...")
     for term in StaticData.df_term.keys():
         ichi[term] = 0.0
         ichi_term_class[term] = {}
@@ -160,15 +164,6 @@ def calculate_ichi_metric(raw_documents):
     StaticData.ichi = ichi
     StaticData.ichi_term_class = ichi_term_class
     return ichi
-
-
-def calculate_term_weight(raw_documents):
-    """Calculate the weight of a term to a document.
-
-    :param raw_documents:
-    :return:
-    """
-    pass
 
 
 def add_value(dict_, key, value):

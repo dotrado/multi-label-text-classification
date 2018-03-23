@@ -269,7 +269,9 @@ class MyVectorizer:
         min_df = self.min_df
         max_features = self.max_features
 
+        print("Convert text to tokenized terms...")
         self.count_vocab(raw_documents, True)
+        print("Calculate term and document frequency of terms in class...")
         calculate_static_data(raw_documents)
 
         n_doc = len(raw_documents)
@@ -282,6 +284,8 @@ class MyVectorizer:
         if max_doc_count < min_doc_count:
             raise ValueError(
                 "max_df corresponds to < documents than min_df")
+
+        print("\n========== Feature selection ==========")
         vocabulary_ = self._limit_features(raw_documents,
                                            max_doc_count,
                                            min_doc_count,
@@ -310,6 +314,7 @@ class MyVectorizer:
         for term, value in ichi.items():
             temp.append([term, value])
 
+        print("Sort terms by ichi...")
         temp = sorted(temp, key=lambda pair: pair[1], reverse=True)
         StaticData.i_chi_list = temp
         vocabulary = [item[0] for item in temp]

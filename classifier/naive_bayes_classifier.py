@@ -44,9 +44,12 @@ class NaiveBayesClassifier:
         p_class = {}
         p_class_attribute = {}
         document_count = 0
+        n = len(train_documents)
+        print("\nBuild Naive Bayes classifier...")
         for document in train_documents:
-            print('Processing training document {}'.format(document_count))
             document_count += 1
+            if document_count % 1000 == 0:
+                print("Rate of progress: {}/{}".format(document_count, n))
             for topic in document.class_['topics']:
                 add_value(p_class, topic, 1)
                 tmp = np.zeros(len(self.feature_vector))
@@ -101,9 +104,12 @@ class NaiveBayesClassifier:
                     temp.append(class_possibility[i][1])
                 y_predict.append(temp)
             return y_predict
+        print("\nNaive Bayes classifier is predicting test documents...")
         document_count = 0
+        n = len(test_documents)
         for document in test_documents:
-            print("Naive Bayes classifier is predicting test document {}...".format(document_count))
+            if document_count % 100 == 0:
+                print("Rate of progress: {}/{}".format(document_count, n))
             document_count += 1
             test_feature_vector = self.generate_feature_vector(document, self.n)
             class_possibility = []

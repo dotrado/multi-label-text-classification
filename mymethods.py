@@ -1,5 +1,6 @@
 import csv
 import os
+import time
 
 import numpy as np
 
@@ -71,27 +72,26 @@ def knn_predict(feature_vector,
                 feature_matrix,
                 y_test_original):
     knn_classifier = KNNClassifier(df_of_classes=StaticData.df_of_classes)
-    accuracy_list = []
-    y_knn_feature_128, y_knn_feature_128_accuracy = [], 0.0
+    StaticData.knn_build_time.append(time.time() - StaticData.A1)
+    print("Offline efficiency cost - time to build knn model: {} s."
+          .format(StaticData.knn_build_time[len(StaticData.knn_build_time) - 1]))
+
+    y_knn_predict, y_knn_accuracy = [], 0.0
     for k in range(5, 6):
         knn_classifier.k = k
-        y_knn_feature_128 = knn_classifier.knn_predict(feature_vector,
-                                                       train_documents,
-                                                       test_documents,
-                                                       feature_matrix)
-        y_knn_feature_128_accuracy = calculate_accuracy(y_knn_feature_128,
-                                                        y_test_original)
-        accuracy_list.append((y_knn_feature_128_accuracy, k))
-        print("k is: {}, accuracy is: {}".format(k, y_knn_feature_128_accuracy))
-
-    accuracy_list = sorted(accuracy_list, key=lambda pair: pair[0], reverse=True)
-    i = 0
-    for accuracy in accuracy_list:
-        print("KNN Classifier: The number of neighbors : k is {}, accuracy is: {}".format(accuracy[1], accuracy[0]))
-        i += 1
-        if i > 10:
-            break
-    return y_knn_feature_128, y_knn_feature_128_accuracy
+        StaticData.A1 = time.time()
+        y_knn_predict = knn_classifier.knn_predict(feature_vector,
+                                                   train_documents,
+                                                   test_documents,
+                                                   feature_matrix)
+        StaticData.knn_predict_time.append(time.time() - StaticData.A1)
+        print("Online efficiency cost - time to predict: {} s."
+              .format(StaticData.knn_predict_time[len(StaticData.knn_predict_time) - 1]))
+        y_knn_accuracy = calculate_accuracy(y_knn_predict,
+                                            y_test_original)
+        StaticData.knn_accuracy.append(y_knn_accuracy)
+        print("\nKNN Classifier: The number of neighbors : k is {}, accuracy is: {}.".format(k, y_knn_accuracy))
+    return y_knn_predict, y_knn_accuracy
 
 
 def naive_predict(feature_vector,
@@ -99,17 +99,27 @@ def naive_predict(feature_vector,
                   train_documents,
                   test_documents,
                   y_test_original):
+    StaticData.A1 = time.time()
     naive_classifier = NaiveBayesClassifier(feature_vector=feature_vector,
                                             vocabulary=vocabulary_,
                                             n=len(train_documents))
     naive_classifier.fit(train_documents)
+    StaticData.naive_build_time.append(time.time() - StaticData.A1)
+    print("Offline efficiency cost - time to build naive model: {} s."
+          .format(StaticData.naive_build_time[len(StaticData.naive_build_time) - 1]))
 
+    StaticData.A1 = time.time()
     y_predict = naive_classifier.predict(test_documents, k=0)
+    StaticData.naive_predict_time.append(time.time() - StaticData.A1)
+    print("Online efficiency cost - time to predict using naive model: {} s."
+          .format(StaticData.naive_predict_time[len(StaticData.naive_predict_time) - 1]))
     y_accuracy = calculate_accuracy(y_predict, y_test_original)
 
-    print("When the cardinality of feature vector is {}, "
+    StaticData.naiver_accuracy.append(y_accuracy)
+    print("\nWhen the cardinality of feature vector is {}, "
           "the accuracy of Naive Bayes Classifier is {}."
           .format(len(feature_vector), y_accuracy))
+    return y_predict
 
 
 def generate_dataset(documents, vocab):
@@ -155,4 +165,55 @@ def write_to_file(iterator, filename):
     with open('output/' + filename, 'w', newline='') as csv_file:
         writer = csv.writer(csv_file, delimiter=',')
         writer.writerows([iterator])
-    print("Finish writing data to {}.".format(filename))
+        csv_file.close()
+    print("Finish writing data to {}.\n".format(filename))
+
+
+def write_predict(y_original, y_predict, filename):
+    # check whether the subdirectory exists or not if not create a subdirectory
+    subdirectory = "output"
+    if not os.path.exists(subdirectory):
+        os.makedirs(subdirectory)
+    print("\nStart writing data to {}...".format(filename))
+    with open('output/' + filename, 'w', newline='') as writer:
+        writer.writelines("True labels -> Predicted labels\n")
+        for Y1, Y2 in zip(y_original, y_predict):
+            writer.writelines("{} -> {}\n".format(Y1, Y2))
+        writer.close()
+    print("Finish writing data to {}.\n".format(filename))
+
+
+def write_termination_messages(filename):
+    # check whether the subdirectory exists or not if not create a subdirectory
+    subdirectory = "output"
+    if not os.path.exists(subdirectory):
+        os.makedirs(subdirectory)
+    print("\nStart writing data to {}...".format(filename))
+    with open('output/' + filename, 'w', newline='') as writer:
+        writer.writelines("========== Termination message ==========\n")
+        writer.writelines("Mission completed.\n")
+        writer.writelines("We select knn classifier and naive classifier.\n")
+        writer.writelines("\nFor feature vector with {} cardinality:\n".format(125))
+        writer.writelines("\nThe accuracy of knn classifier is {}.\n".format(StaticData.knn_accuracy[0]))
+        writer.writelines("The offline efficient cost of knn classifier is {} s.\n"
+                          .format(StaticData.knn_build_time[0]))
+        writer.writelines("The online efficient cost of knn classifier is {} s.\n"
+                          .format(StaticData.knn_predict_time[0]))
+        writer.writelines("\nThe accuracy of naive classifier is {}.\n".format(StaticData.naiver_accuracy[0]))
+        writer.writelines(
+            "The offline efficient cost of naive classifier is {} s.\n".format(StaticData.naive_build_time[0]))
+        writer.writelines(
+            "The online efficient cost of naive classifier is {} s.\n".format(StaticData.naive_predict_time[0]))
+        writer.writelines("\nFor feature vector with {} cardinality:\n".format(270))
+        writer.writelines("\nThe accuracy of knn classifier is {}.\n".format(StaticData.knn_accuracy[1]))
+        writer.writelines("The offline efficient cost of knn classifier is {} s.\n"
+                          .format(StaticData.knn_build_time[1]))
+        writer.writelines("The online efficient cost of knn classifier is {} s.\n"
+                          .format(StaticData.knn_predict_time[1]))
+        writer.writelines("\nThe accuracy of naive classifier is {}.\n".format(StaticData.naiver_accuracy[1]))
+        writer.writelines("The offline efficient cost of naive classifier is {} s.\n"
+                          .format(StaticData.naive_build_time[1]))
+        writer.writelines("The online efficient cost of naive classifier is {} s.\n"
+                          .format(StaticData.naive_predict_time[1]))
+        writer.close()
+    print("Finish writing data to {}.\n".format(filename))
