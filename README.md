@@ -220,25 +220,23 @@ Use following method to measure the accuracy of two classifiers.
 
 - First, extract the topics of test documents as a list named Y\_original.
 
-- For knn classifier, I will generate one or multiple labels for each test documents. Compare each predicted label with original class labels(topics), if a predicted label appears in original class labels, we collect it as a true label. Use 
-  $$
-  accuracy_i = \frac{|\text{true labels}|}{|\text{predicted labels}|}
-  $$
-  to measure the accuracy for a test document. Then the accuracy for the classifier is 
-  $$
-  accuracy = \frac{\sum_i accuracy_i}{len(\text{test documents})}
-  $$
-  
-- For naive bayes classifier, I will generate one label for each test documents. Compare each predicted label with original class labels(topics), if a predicted label appears in original class labels, we collect it as a true label. Use
-  $$
-  accuracy_i = \frac{|\text{true labels}|}{|\text{predicted labels}|}
-  $$
-  to measure the accuracy for a test document. We can see the $accuracy_i$ is 0 or 1.
+- For knn classifier, I will generate one or multiple labels for each test documents. Compare each predicted label with original class labels(topics), if a predicted label appears in original class labels, we collect it as a true label. Use
 
-  Then the accuracy for the classifier is 
-  $$
-  accuracy = \frac{\sum_i accuracy_i}{len(\text{test documents})}
-  $$
+  ![](https://i.loli.net/2018/03/24/5ab5a81164d08.png)
+
+  to measure the accuracy for a test document. Then the accuracy for the classifier is
+
+  ![](https://i.loli.net/2018/03/24/5ab5a8a574325.png)
+
+- For naive bayes classifier, I will generate one label for each test documents. Compare each predicted label with original class labels(topics), if a predicted label appears in original class labels, we collect it as a true label. Use
+
+  ![](https://i.loli.net/2018/03/24/5ab5a8cb7188d.png)
+
+  to measure the accuracy for a test document. We can see the `accuracy_i` is 0 or 1.
+
+  Then the accuracy for the classifier is
+
+  ![](https://i.loli.net/2018/03/24/5ab5a8e9eeeb9.png)
 
 
 
