@@ -1,2 +1,4 @@
 output/
 .idea/
+*.txt
+*.pdf
